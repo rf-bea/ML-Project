@@ -1,0 +1,1 @@
+This report analyzes data from accelerometers to determine if dumbbell curls are performed correctly or incorrectly in one of 5 different ways. Accelerometers are placed on the arm, forearm, belt, and dumbbell. 6 participants are then asked to perform the curls either correctly or incorrectly and the data from the accelerometers is collected (1). 
