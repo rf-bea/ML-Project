@@ -1,0 +1,244 @@
+---
+title: "Machine Learning Project"
+author: "Robert Beahm"
+date: "2023-04-19"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+
+
+
+Read in Data and split into Training and Test sets
+
+
+```{r}
+library(dplyr)
+
+BG_data = read.csv("bg_data.csv")
+
+
+library(caret)
+library(randomForest)
+
+##########################Split data into training and testing sets (original test data will be validation set) #############################
+set.seed(1234)
+BG_data$classe <- as.factor(BG_data$classe)
+#BG_data <- subset(BG_data, select = -X)
+
+inTrain = createDataPartition(BG_data$classe, p = .75, list=FALSE)
+training2 = BG_data[ inTrain,]
+testing2 = BG_data[-inTrain,]
+
+
+```
+
+Preprocess the Data using Center and Scale
+
+```{r}
+preObj <- preProcess(training2[,-50],method = c("center","scale"))
+train_pp <- predict(preObj,training2[,-50])
+train_pp2 <- data.frame(train_pp, classe = training2$classe)
+
+preTS <- preProcess(testing2[,-50],method = c("center","scale"))
+test_pp <- predict(preTS,testing2[,-50])
+test_pp2 <- data.frame(test_pp, classe = testing2$classe)
+
+library(dplyr)
+
+
+
+```
+
+Use Random Forest in r to Find Most important Factors
+
+```{r}
+library(randomForest)
+data(train_pp2)
+model_2 <- randomForest(classe~., data=train_pp2, type="response")
+
+rf_pred2 <- predict(model_2, test_pp2)
+vi <- model_2$importance
+print(vi)
+
+```
+
+
+Determine the accuracy of the RF method with all parameters 
+```{r}
+rf_right1 <- test_pp2$classe == rf_pred2
+
+table(rf_right1)   #99.04 % correct
+
+
+```
+
+
+Determine the accuracy using the top ten parameters(Gini score)
+
+
+```{r}
+library(caret)
+set.seed(1234)
+model_t10 <- randomForest(classe~roll_belt + yaw_belt + pitch_forearm + magnet_dumbbell_z + pitch_belt + magnet_dumbbell_y + 
+                            roll_forearm + magnet_dumbbell_x + magnet_belt_z + accel_belt_z, data = train_pp2, type="responce")
+rf_t10_pred <- predict(model_t10, test_pp2)
+rf_t10_right <- test_pp2$classe == rf_t10_pred
+table(rf_t10_right)     # 93.78   % correct
+```
+
+Determine the accuracy using the top 15 parameters
+
+```{r}
+model_t15 <- randomForest(classe~roll_belt + yaw_belt + pitch_forearm + magnet_dumbbell_z + pitch_belt + magnet_dumbbell_y + 
+                            roll_forearm + magnet_dumbbell_x + magnet_belt_z + accel_belt_z + magnet_belt_y + accel_dumbbell_y +
+                            roll_dumbbell + accel_forearm_x + roll_arm , data = train_pp2, type="responce")
+rf_t15_pred <- predict(model_t15, test_pp2)
+rf_t15_right <- test_pp2$classe == rf_t15_pred
+table(rf_t15_right)       #97.12
+
+```
+
+In the next section several models in the 'caret' package are fit and tested for accuracy:
+
+Random Forest 'rf'
+
+```{r}
+library(caret)
+set.seed(1234)
+c_rf_model <- train(classe~roll_belt + yaw_belt + pitch_forearm + magnet_dumbbell_z + pitch_belt + magnet_dumbbell_y + 
+                      roll_forearm + magnet_dumbbell_x + magnet_belt_z + accel_belt_z + magnet_belt_y + accel_dumbbell_y +
+                      roll_dumbbell + accel_forearm_x + roll_arm, data = train_pp2, method = "rf", prox =TRUE)
+
+c_rf_pred <- predict(c_rf_model, test_pp2)
+C_rf_right <- test_pp2$classe == c_rf_pred
+table(C_rf_right)                           # 96.02 %
+
+```
+
+Generalized Boosting Method 'gbm'
+
+```{r}
+library(caret)
+set.seed(1234)
+c_bu_model <- train(classe~roll_belt + yaw_belt + pitch_forearm + magnet_dumbbell_z + pitch_belt + magnet_dumbbell_y + 
+                      roll_forearm + magnet_dumbbell_x + magnet_belt_z + accel_belt_z + magnet_belt_y + accel_dumbbell_y +
+                      roll_dumbbell + accel_forearm_x + roll_arm, data = train_pp2, method = "gbm", verbose = FALSE)
+
+c_bu_pred <- predict(c_bu_model, test_pp2)
+c_bu_right <- test_pp2$classe == c_bu_pred
+table(c_bu_right)                       # 89.35 %
+```
+
+K-Nearest Neighbors 'knn'
+
+```{r}
+library(caret)
+set.seed(1234)
+c_knn_model <- train(classe~roll_belt + yaw_belt + pitch_forearm + magnet_dumbbell_z + pitch_belt + magnet_dumbbell_y + 
+                       roll_forearm + magnet_dumbbell_x + magnet_belt_z + accel_belt_z + magnet_belt_y + accel_dumbbell_y +
+                       roll_dumbbell + accel_forearm_x + roll_arm, data = train_pp2, method='knn')
+
+c_knn_pred <- predict(c_knn_model,test_pp2)
+c_knn_right <- test_pp2$classe == c_knn_pred
+table(c_knn_right)                       # 94.25 %
+```
+
+Support Vector Machine 'svmPoly'
+
+```{r}
+library(caret)
+c_svmp <- train(classe~roll_belt + yaw_belt + pitch_forearm + magnet_dumbbell_z + pitch_belt + magnet_dumbbell_y + 
+                  roll_forearm + magnet_dumbbell_x + magnet_belt_z + accel_belt_z + magnet_belt_y + accel_dumbbell_y +
+                  roll_dumbbell + accel_forearm_x + roll_arm, data = train_pp2, method='svmPoly')
+c_svmp_pred <- predict(c_svmp, test_pp2)  
+table(test_pp2$classe == c_svmp_pred)   #92 %
+```
+
+R Partition 'rpart'
+
+```{r}
+library(caret)
+set.seed(1234)
+c_rpart_model <- train(classe~roll_belt + yaw_belt + pitch_forearm + magnet_dumbbell_z + pitch_belt + magnet_dumbbell_y + 
+                         roll_forearm + magnet_dumbbell_x + magnet_belt_z + accel_belt_z + magnet_belt_y + accel_dumbbell_y +
+                         roll_dumbbell + accel_forearm_x + roll_arm, data = train_pp2, method='rpart')
+c_rpart_pred <- predict(c_rpart_model, test_pp2)
+table(test_pp2$classe == c_rpart_pred) #49.24%
+```
+
+Linear Discriminate Analysis 'lda'
+
+```{r}
+library(caret)
+set.seed(1234)
+c_lda_model <- train(classe~roll_belt + yaw_belt + pitch_forearm + magnet_dumbbell_z + pitch_belt + magnet_dumbbell_y + 
+                       roll_forearm + magnet_dumbbell_x + magnet_belt_z + accel_belt_z + magnet_belt_y + accel_dumbbell_y +
+                       roll_dumbbell + accel_forearm_x + roll_arm, data = train_pp2, method = "lda")
+c_lda_pred <- predict(c_lda_model, test_pp2)
+c_lda_right <- test_pp2$classe == c_lda_pred
+table(c_lda_right)                 # 57.34 %
+```
+
+Next 3 stacked models are tested
+
+-- Random Forest and Generalized Boosting Method
+```{r}
+library(dplyr)
+set.seed(1234)
+rf_bu_pred_DF <- data.frame(c_rf_pred, c_bu_pred, classe=test_pp2$classe)
+library(caret)
+rf_bu_model <- train(classe ~ ., method="rf", data = rf_bu_pred_DF)
+
+rf_bu_pred <- predict(rf_bu_model, rf_bu_pred_DF)
+table(rf_bu_pred == test_pp2$classe)                   # 47.22 %
+
+```
+
+--Random Forest and K-Nearest Neighbors model 
+
+```{r}
+library(dplyr)
+library(caret)
+rf_knn_DF <- data.frame(c_rf_pred, c_knn_pred, classe = test_pp2$classe) 
+
+rf_knn_model <- train(classe~., method = 'rf', data=rf_knn_DF) 
+
+rf_knn_pred <- predict(rf_knn_model, rf_knn_DF)
+table(rf_knn_pred == test_pp2$classe)   #96.34 %
+```
+
+
+--Random Forest, K-Nearest Neighbors and Support Vector Machine model
+```{r}
+rf_knn_svm_DF <- data.frame(c_rf_pred, c_knn_pred, c_svmp_pred, classe = test_pp2$classe)
+rf_knn_svm_model <- train(classe~., method = 'rf', data=rf_knn_svm_DF)
+rf_knn_svm_pred <- predict(rf_knn_svm_model, rf_knn_svm_DF)
+table(rf_knn_svm_pred == test_pp2$classe)   #96.83 %
+```
+
+Tune the initial Random Forest Model 
+```{r}
+library(dplyr)
+tune_DF <- select(test_pp2, roll_belt, yaw_belt , pitch_forearm , magnet_dumbbell_z , pitch_belt , magnet_dumbbell_y, 
+                    roll_forearm , magnet_dumbbell_x , magnet_belt_z , accel_belt_z , magnet_belt_y , accel_dumbbell_y ,
+                    roll_dumbbell , accel_forearm_x , roll_arm)
+
+library(randomForest)
+set.seed(1234)
+tmtry <- tuneRF(tune_DF, test_pp2$classe, stepFactor=1.5, improve=0.001, ntree=500)
+print(tmtry)
+
+tuned_rf <-  randomForest(classe~roll_belt + yaw_belt + pitch_forearm + magnet_dumbbell_z + pitch_belt + magnet_dumbbell_y + 
+                            roll_forearm + magnet_dumbbell_x + magnet_belt_z + accel_belt_z + magnet_belt_y + accel_dumbbell_y +
+                            roll_dumbbell + accel_forearm_x + roll_arm , data = train_pp2, mtry = 4, type="responce")
+tuned_rf_pred <- predict(tuned_rf, test_pp2)
+table(test_pp2$classe == tuned_rf_pred)   
+```
+
+
